@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../api";
 import Navbar from "../components/Navbar";
-import "./AdminDashboard.css";
+import "../styles/AdminDashboard.css";
 
 function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
