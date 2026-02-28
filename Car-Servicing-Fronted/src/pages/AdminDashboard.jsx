@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from "react";
 import API from "../api";
 import Navbar from "../components/Navbar";
-import "../styles/AdminDashboard.css"; // Create this CSS file
+import "./AdminDashboard.css";
 
 function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
-  const [filteredBookings, setFilteredBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: "", type: "" });
-  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [selectedBooking, setSelectedBooking] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [bookingToDelete, setBookingToDelete] = useState(null);
   const [stats, setStats] = useState({
@@ -27,37 +24,12 @@ function AdminDashboard() {
     try {
       const res = await API.get("/admin/bookings");
       setBookings(res.data);
-      setFilteredBookings(res.data);
       calculateStats(res.data);
       setMessage({ text: "", type: "" });
     } catch (error) {
       console.error("Error fetching bookings:", error);
       setMessage({ 
         text: error.response?.data?.message || "Failed to load bookings", 
-        type: "error" 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch bookings by user ID
-  const fetchBookingsByUserId = async (userId) => {
-    if (!userId) return;
-    
-    setLoading(true);
-    try {
-      const res = await API.get(`/admin/bookings/user/${userId}`);
-      setFilteredBookings(res.data);
-      calculateStats(res.data);
-      setMessage({ 
-        text: `Found ${res.data.length} bookings for user ID: ${userId}`, 
-        type: "success" 
-      });
-    } catch (error) {
-      console.error("Error fetching user bookings:", error);
-      setMessage({ 
-        text: error.response?.data?.message || "User not found or no bookings", 
         type: "error" 
       });
     } finally {
@@ -129,30 +101,10 @@ function AdminDashboard() {
     });
   };
 
-  // Handle search and filter
-  useEffect(() => {
-    let filtered = bookings;
-
-    // Apply search
-    if (searchTerm) {
-      filtered = filtered.filter(booking => 
-        booking.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.bikeModel?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.serviceType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.id?.toString().includes(searchTerm)
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== "ALL") {
-      filtered = filtered.filter(booking => 
-        booking.status?.toUpperCase() === statusFilter
-      );
-    }
-
-    setFilteredBookings(filtered);
-    calculateStats(filtered);
-  }, [searchTerm, statusFilter, bookings]);
+  // Filter bookings by status
+  const filteredBookings = statusFilter === "ALL" 
+    ? bookings 
+    : bookings.filter(booking => booking.status?.toUpperCase() === statusFilter);
 
   useEffect(() => {
     fetchBookings();
@@ -248,20 +200,10 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Search and Filter Section */}
-        <div className="admin-search-section">
-          <div className="admin-search-box">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Search by user name, bike model, service type or booking ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="admin-search-input"
-            />
-          </div>
-
+        {/* Status Filter Only */}
+        <div className="admin-filter-section">
           <div className="admin-filter-group">
+            <label>Filter by Status:</label>
             <select 
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -273,48 +215,6 @@ function AdminDashboard() {
               <option value="COMPLETED">Completed</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
-
-            <button 
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("ALL");
-              }}
-              className="admin-clear-filter"
-            >
-              Clear Filters
-            </button>
-          </div>
-        </div>
-
-        {/* User ID Search Card */}
-        <div className="admin-user-search-card">
-          <h4>🔍 Search Bookings by User ID</h4>
-          <div className="admin-user-search">
-            <input
-              type="number"
-              placeholder="Enter User ID (e.g., 1, 2, 3...)"
-              id="userIdSearch"
-              className="admin-user-input"
-            />
-            <button 
-              onClick={() => {
-                const userId = document.getElementById('userIdSearch').value;
-                if (userId) {
-                  fetchBookingsByUserId(userId);
-                } else {
-                  setMessage({ text: "Please enter a User ID", type: "error" });
-                }
-              }}
-              className="admin-user-search-btn"
-            >
-              Search User Bookings
-            </button>
-            <button 
-              onClick={fetchBookings}
-              className="admin-view-all-btn"
-            >
-              View All Bookings
-            </button>
           </div>
         </div>
 
@@ -333,7 +233,7 @@ function AdminDashboard() {
             <div className="admin-empty-state">
               <div className="empty-icon">📭</div>
               <h4>No Bookings Found</h4>
-              <p>No bookings match your search criteria</p>
+              <p>No bookings match the selected status</p>
             </div>
           ) : (
             <div className="admin-table-responsive">
@@ -370,40 +270,31 @@ function AdminDashboard() {
                       </td>
                       <td>
                         <div className="action-buttons">
-                          {booking.status?.toLowerCase() !== 'completed' && 
-                           booking.status?.toLowerCase() !== 'cancelled' && (
-                            <>
-                              <select
-                                onChange={(e) => updateStatus(booking.id, e.target.value)}
-                                className="status-select"
-                                defaultValue=""
-                              >
-                                <option value="" disabled>Change Status</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="APPROVED">Approve</option>
-                                <option value="COMPLETED">Complete</option>
-                                <option value="CANCELLED">Cancel</option>
-                              </select>
-                              
-                              <button
-                                onClick={() => {
-                                  setSelectedBooking(booking);
-                                  setShowDeleteModal(true);
-                                  setBookingToDelete(booking.id);
-                                }}
-                                className="delete-btn"
-                                title="Delete Booking"
-                              >
-                                🗑️
-                              </button>
-                            </>
-                          )}
-                          {booking.status?.toLowerCase() === 'completed' && (
-                            <span className="completed-label">✓ Completed</span>
-                          )}
-                          {booking.status?.toLowerCase() === 'cancelled' && (
-                            <span className="cancelled-label">✗ Cancelled</span>
-                          )}
+                          {/* Status Change Dropdown - Always Visible */}
+                          <select
+                            onChange={(e) => updateStatus(booking.id, e.target.value)}
+                            className="status-select"
+                            value=""
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Change Status</option>
+                            <option value="PENDING">⏳ Pending</option>
+                            <option value="APPROVED">✅ Approve</option>
+                            <option value="COMPLETED">🏆 Complete</option>
+                            <option value="CANCELLED">❌ Cancel</option>
+                          </select>
+                          
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => {
+                              setShowDeleteModal(true);
+                              setBookingToDelete(booking.id);
+                            }}
+                            className="delete-btn"
+                            title="Delete Booking"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>
