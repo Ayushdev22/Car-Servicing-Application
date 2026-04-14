@@ -27,8 +27,8 @@ public class Booking {
     private String serviceType;
     private LocalDate bookingDate;
 
-    //@Enumerated(value = EnumType.STRING)
-    private String status; // PENDING, COMPLETED
+    
+    private String status; 
 
     @ManyToOne
     @JoinColumn(name = "user_id")
